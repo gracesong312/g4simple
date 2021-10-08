@@ -43,6 +43,7 @@ class G4SimpleSteppingAction : public G4UserSteppingAction, public G4UImessenger
     G4UIcommand* fVolIDCmd;
     G4UIcmdWithAString* fOutputFormatCmd;
     G4UIcmdWithAString* fOutputOptionCmd;
+    G4UIcmdWithAString* fSetFileNameCmd;
     G4UIcmdWithABool* fRecordAllStepsCmd;
     G4UIcmdWithAString* fSilenceOutputCmd;
     G4UIcmdWithAString* fAddOutputCmd;
@@ -111,6 +112,9 @@ class G4SimpleSteppingAction : public G4UserSteppingAction, public G4UImessenger
       fOutputOptionCmd->SetGuidance("  stepwise: one row per step");
       fOutputOptionCmd->SetGuidance("  eventwise: one row per event");
       fOption = kStepWise;
+
+      fSetFileNameCmd = new G4UIcmdWithAString("/g4simple/setFileName", this);
+      fSetFileNameCmd->SetGuidance("Set output file name with environment variable support");
 
       fRecordAllStepsCmd = new G4UIcmdWithABool("/g4simple/recordAllSteps", this);
       fRecordAllStepsCmd->SetParameterName("recordAllSteps", true);
@@ -192,6 +196,23 @@ class G4SimpleSteppingAction : public G4UserSteppingAction, public G4UImessenger
       if(command == fOutputOptionCmd) {
         if(newValues == "stepwise") fOption = kStepWise;
         if(newValues == "eventwise") fOption = kEventWise;
+      }
+      if(command == fSetFileNameCmd) {
+        G4VAnalysisManager* man = GetAnalysisManager();
+        while(newValues.contains("$[")){
+          str_size start = newValues.index("$[");
+          str_size end = newValues.index(']');
+          const char* var = newValues(start+2, end-start-2).data();
+          char* path = getenv(var);
+          if (path != NULL){
+            printf("Got path %s", path);
+          }else{
+            printf("NULL");
+          }
+          newValues = newValues.replace(start, end-start+1, path);
+        }
+        cout << newValues << endl;
+        man->SetFileName(newValues);
       }
       if(command == fRecordAllStepsCmd) {
         fRecordAllSteps = fRecordAllStepsCmd->GetNewBoolValue(newValues);
@@ -277,7 +298,7 @@ class G4SimpleSteppingAction : public G4UserSteppingAction, public G4UImessenger
       // the first step AFTER hitting the boundary.
       G4StepPoint* stepPoint = step->GetPreStepPoint();
       fVolID.push_back(GetVolID(stepPoint));
-      if(!usePreStep) stepPoint = stepPoint = step->GetPostStepPoint();
+      if(!usePreStep) stepPoint = step->GetPostStepPoint();
       fPID.push_back(step->GetTrack()->GetParticleDefinition()->GetPDGEncoding());
       fTrackID.push_back(step->GetTrack()->GetTrackID());
       fParentID.push_back(step->GetTrack()->GetParentID());
